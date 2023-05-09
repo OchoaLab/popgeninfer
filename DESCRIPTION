@@ -1,0 +1,23 @@
+Package: popgeninfer
+Title: Population Genetics Inference
+Version: 0.0.0.9000
+Authors@R: c(
+    person(given = "Alejandro",
+	   family = "Ochoa",
+	   role = c("aut", "cre"),
+	   email = "alejandro.ochoa@duke.edu",
+           comment = c(ORCID = "0000-0003-4928-3403")),
+    person(given = "Tiffany",
+	   family = "Tu",
+	   role = c("aut"),
+	   email = "tiffany.tu@duke.edu",
+           comment = c(ORCID = "0000-0002-9357-6660"))
+    )
+Description: Simple statistical tests, so far concerning allele frequencies.
+License: GPL (>= 3)
+Encoding: UTF-8
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.2.3
+Suggests: 
+    testthat (>= 3.0.0)
+Config/testthat/edition: 3
