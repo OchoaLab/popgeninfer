@@ -1,4 +1,5 @@
 # returns statistic only for max flexibility
+# this works with matrix inputs too, but output will be a vector in that case
 af_test_single <- function( x1, n1, x2, n2 ){
     # confirm that vectors have same length
     k <- length( x1 )

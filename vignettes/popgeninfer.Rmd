@@ -1,0 +1,137 @@
+---
+title: "popgeninfer"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{popgeninfer}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+```{r setup}
+library(popgeninfer)
+```
+
+## Allele frequency testing of separate loci
+
+The setup is that there are two datasets and we want to know if the allele frequencies are essentially the same in both of them or not.
+We will use allele counts to perform these statistical tests while taking sample sizes into account.
+
+Let's simulate a large number of "null" SNPs for the first example where allele frequencies are truly the same.
+Let's simulate the desired data using a compact vectorized notation.
+```{r}
+# number of loci to simulate
+m <- 1000
+
+# draw `m` random allele frequencies between 0 and 1 from Uniform distribution.
+# (test is applied to each locus separately, so it does not assume any particular distribution
+# for the true allele frequencies).
+p <- runif( m )
+
+# for fun, draw random sample sizes for each locus and for each of the two datasets.
+# use the Poisson distribution to draw `m` random non-negative integers with mean `n_mean`.
+# don't allow zero sample sizes though, minimum is 1.
+# (as above, there is no assumption being made for sample size distributions,
+# each locus is tested separately and stample sizes are known and conditioned upon.)
+n_mean <- 100
+n1 <- 1 + rpois( m, n_mean )
+n2 <- 1 + rpois( m, n_mean )
+
+# finally, draw the observed counts, a vector of length `m`, each element a count
+# between zero and `n1` and mean `n1*p`, both of which varies per locus.
+# Use Binomial distribution, which **is** assumed by the statistical test.
+x1 <- rbinom( m, n1, p )
+x2 <- rbinom( m, n2, p )
+
+# apply test to each locus separately
+obj <- af_test( x1, n1, x2, n2 )
+pvalues <- obj$pval
+```
+
+As the data was simulated under the null distribution (the true allele frequencies in both datasets are the same), we expect these p-values to be uniformly distributed.
+Let's confirm:
+```{r, fig.width = 4.2, fig.height = 3, fig.align = 'center'}
+hist( pvalues, freq = FALSE, main = '' )
+abline( h = 1, lty = 2, col = 'red' )
+```
+
+Now let's create data where the alternative hypothesis holds, namely that the allele frequencies are different in the each dataset.
+Let's simply create new allele frequencies for the second dataset, regenerate its data, and retest.
+These p-values are expected to be non-uniform and concentrated around zero.
+```{r, fig.width = 4.2, fig.height = 3, fig.align = 'center'}
+# draw new allele frequencies for second dataset
+p2 <- runif( m )
+# and new allele counts from these frequencies
+x2 <- rbinom( m, n2, p2 )
+
+# apply test to each locus separately
+obj <- af_test( x1, n1, x2, n2 )
+pvalues <- obj$pval
+
+# plot new p-value distribution
+hist( pvalues, freq = FALSE, main = '' )
+abline( h = 1, lty = 2, col = 'red' )
+```
+
+## Allele frequency testing of separate loci, combining data from different ancestries
+
+The same function accepts matrix inputs, in which case column data is combined in a single test, but rows remain separate tests.
+The matrix dimensions of all inputs must match.
+The test has degrees of freedom equal to the number of columns, and tests the joint null that all allele frequencies are equal (that is, even a single departure favors the alternative).
+Let's simulate more data under this null but with the correct number of dimensions.
+It's useful to think fo the rows as loci and columns as different ancestries, as done below, but they may represent different groupings or categories as long as columns are combined but rows are not.
+```{r, fig.width = 4.2, fig.height = 3, fig.align = 'center'}
+# number of loci to simulate
+m <- 1000
+# number of ancestries to simulate
+k <- 3
+
+# draw `m*k` random allele frequencies, reshape as matrix for clarity (code works anyway)
+p <- matrix( runif( m*k ), nrow = m, ncol = k )
+
+# draw random sample sizes for each locus, ancestry, and the two datasets, as before.
+n_mean <- 100
+n1 <- 1 + rpois( m*k, n_mean )
+n2 <- 1 + rpois( m*k, n_mean )
+n1 <- matrix( n1, nrow = m, ncol = k )
+n2 <- matrix( n2, nrow = m, ncol = k )
+
+# finally, draw the observed counts
+x1 <- rbinom( m*k, n1, p )
+x2 <- rbinom( m*k, n2, p )
+x1 <- matrix( x1, nrow = m, ncol = k )
+x2 <- matrix( x2, nrow = m, ncol = k )
+
+# apply test to each locus separately, but combining column data
+obj <- af_test( x1, n1, x2, n2 )
+pvalues <- obj$pval
+# confirm that there are exactly `m` p-values (not `k`, `m*k`, or some other number)
+stopifnot( length( pvalues ) == m )
+# confirm that they are uniform as expected
+hist( pvalues, freq = FALSE, main = '' )
+abline( h = 1, lty = 2, col = 'red' )
+```
+
+And, as before, create a second dataset with different allele frequencies, which yield p-values that peak near zero.
+```{r, fig.width = 4.2, fig.height = 3, fig.align = 'center'}
+# draw `m*k` random allele frequencies
+p2 <- matrix( runif( m*k ), nrow = m, ncol = k )
+# redraw the observed counts
+x2 <- rbinom( m*k, n2, p2 )
+x2 <- matrix( x2, nrow = m, ncol = k )
+
+# apply test
+obj <- af_test( x1, n1, x2, n2 )
+pvalues <- obj$pval
+# confirm that there are exactly `m` p-values
+stopifnot( length( pvalues ) == m )
+# confirm that they peaked near zero as expected
+hist( pvalues, freq = FALSE, main = '' )
+abline( h = 1, lty = 2, col = 'red' )
+```

@@ -9,26 +9,27 @@ af_test(x1, n1, x2, n2)
 \arguments{
 \item{x1}{The number of alleles of one type in the first dataset.}
 
-\item{n1}{The total numbers of alleles in the first dataset.}
+\item{n1}{The total numbers of alleles (of all types) in the first dataset.}
 
 \item{x2}{The number of alleles of one type in the second dataset.}
 
-\item{n2}{The total numbers of alleles in the second dataset.}
+\item{n2}{The total numbers of alleles (of all types) in the second dataset.}
 }
 \value{
 A list with these values:
 \itemize{
-\item \code{stat}: the test statistic
-\item \code{df}: degrees of freedom used for chi squared test
-\item \code{pval}: the p-value.
+\item \code{stat}: the test statistics (length equal to number of rows of inputs).
+\item \code{df}: degrees of freedom used for chi squared test.
+\item \code{pval}: the p-values (length equal to number of rows of inputs).
 }
 }
 \description{
-This function tests if allele frequencies at a single locus match between datasets based on their counts and sample sizes.
+This function tests if allele frequencies at each locus match between two datasets based on their counts and sample sizes.
 Under the null hypothesis, the frequency is the same in both datasets, while under the alternative they are different.
 Counts are assumed to be Binomially distributed.
 Significance is calculated using the likelihood ratio test.
-If inputs are equal-length vectors, they are treated as independent data all assigned a single p-value calculated with degrees of freedom equal to the number of datapoints, which tests the joint null hypothesis (useful for combining data from different ancestries, or different loci).
+If inputs are matrices of equal dimensions, rows are tested separately but columns are combined, assigned a single p-value calculated with degrees of freedom equal to the number of columns, which tests the joint null hypothesis (useful for combining data from different ancestries, or different loci).
+Vector inputs are treated as column matrices.
 }
 \examples{
 ### Test single locus ###
@@ -51,19 +52,29 @@ data <- af_test( x1, n1, x2, n2 )
 # so example is most likely insignificant
 data$pval
 
-### Multiple loci ###
+### Multiple loci and ancestries ###
 
-# it's useful to think of each set of data as the same locus but a different ancestry,
+# it's useful to think of each column as the same locus but a different ancestry,
 # so the allele frequencies can be different.
-# here the null hypothesis is true so both will share the same allele frequency.
-# will simulate 3 ancestries
-p <- c( 0.2, 0.7, 0.5 )
+# Each row is a different locus to be tested separately.
+# here the null hypothesis is true so both datasets will share the same allele frequency.
+# will simulate 2 loci, 3 ancestries
+p <- matrix(
+    c(
+        0.2, 0.7, 0.5,
+        0.1, 0.3, 0.5
+    ),
+    nrow = 2,
+    ncol = 3,
+    byrow = TRUE
+)
 # all sample sizes can be different
-n1 <- c( 100, 80, 200 )
-n2 <- c( 50, 15, 99 )
-# simulate counts from Binomial distribution (vectorized across all 3 ancestries)
-x1 <- rbinom( 3, n1, p )
-x2 <- rbinom( 3, n2, p )
+n1 <- matrix( c( 100, 80, 200, 33, 66, 99 ), nrow = 2, byrow = TRUE )
+n2 <- matrix( c( 50, 15, 99, 44, 55, 66 ), nrow = 2, byrow = TRUE )
+# simulate counts from Binomial distribution (vectorized across all 3 ancestries,
+# reshaped as matrix of desired dimensions)
+x1 <- matrix( rbinom( 6, n1, p ), nrow = 2 )
+x2 <- matrix( rbinom( 6, n2, p ), nrow = 2 )
 
 # perform desired statistical test, a single p-value testing whether all of the three ancestries
 # have the same allele frequency in both datasets (within each ancestry) or not, which is a

@@ -1,20 +1,21 @@
 #' Tests if allele frequencies match between datasets
 #'
-#' This function tests if allele frequencies at a single locus match between datasets based on their counts and sample sizes.
+#' This function tests if allele frequencies at each locus match between two datasets based on their counts and sample sizes.
 #' Under the null hypothesis, the frequency is the same in both datasets, while under the alternative they are different.
 #' Counts are assumed to be Binomially distributed.
 #' Significance is calculated using the likelihood ratio test.
-#' If inputs are equal-length vectors, they are treated as independent data all assigned a single p-value calculated with degrees of freedom equal to the number of datapoints, which tests the joint null hypothesis (useful for combining data from different ancestries, or different loci).
+#' If inputs are matrices of equal dimensions, rows are tested separately but columns are combined, assigned a single p-value calculated with degrees of freedom equal to the number of columns, which tests the joint null hypothesis (useful for combining data from different ancestries, or different loci).
+#' Vector inputs are treated as column matrices.
 #'
 #' @param x1 The number of alleles of one type in the first dataset.
-#' @param n1 The total numbers of alleles in the first dataset.
+#' @param n1 The total numbers of alleles (of all types) in the first dataset.
 #' @param x2 The number of alleles of one type in the second dataset.
-#' @param n2 The total numbers of alleles in the second dataset.
+#' @param n2 The total numbers of alleles (of all types) in the second dataset.
 #'
 #' @return A list with these values:
-#' - `stat`: the test statistic
-#' - `df`: degrees of freedom used for chi squared test
-#' - `pval`: the p-value.
+#' - `stat`: the test statistics (length equal to number of rows of inputs).
+#' - `df`: degrees of freedom used for chi squared test.
+#' - `pval`: the p-values (length equal to number of rows of inputs).
 #'
 #' @examples
 #' ### Test single locus ###
@@ -37,19 +38,29 @@
 #' # so example is most likely insignificant
 #' data$pval
 #'
-#' ### Multiple loci ###
+#' ### Multiple loci and ancestries ###
 #'
-#' # it's useful to think of each set of data as the same locus but a different ancestry,
+#' # it's useful to think of each column as the same locus but a different ancestry,
 #' # so the allele frequencies can be different.
-#' # here the null hypothesis is true so both will share the same allele frequency.
-#' # will simulate 3 ancestries
-#' p <- c( 0.2, 0.7, 0.5 )
+#' # Each row is a different locus to be tested separately.
+#' # here the null hypothesis is true so both datasets will share the same allele frequency.
+#' # will simulate 2 loci, 3 ancestries
+#' p <- matrix(
+#'     c(
+#'         0.2, 0.7, 0.5,
+#'         0.1, 0.3, 0.5
+#'     ),
+#'     nrow = 2,
+#'     ncol = 3,
+#'     byrow = TRUE
+#' )
 #' # all sample sizes can be different
-#' n1 <- c( 100, 80, 200 )
-#' n2 <- c( 50, 15, 99 )
-#' # simulate counts from Binomial distribution (vectorized across all 3 ancestries)
-#' x1 <- rbinom( 3, n1, p )
-#' x2 <- rbinom( 3, n2, p )
+#' n1 <- matrix( c( 100, 80, 200, 33, 66, 99 ), nrow = 2, byrow = TRUE )
+#' n2 <- matrix( c( 50, 15, 99, 44, 55, 66 ), nrow = 2, byrow = TRUE )
+#' # simulate counts from Binomial distribution (vectorized across all 3 ancestries,
+#' # reshaped as matrix of desired dimensions)
+#' x1 <- matrix( rbinom( 6, n1, p ), nrow = 2 )
+#' x2 <- matrix( rbinom( 6, n2, p ), nrow = 2 )
 #'
 #' # perform desired statistical test, a single p-value testing whether all of the three ancestries
 #' # have the same allele frequency in both datasets (within each ancestry) or not, which is a
@@ -59,19 +70,42 @@
 #' 
 #' @export
 af_test <- function( x1, n1, x2, n2 ) {
-    # confirm that vectors have same length
-    k <- length( x1 )
-    if ( length( n1 ) != k )
-        stop( 'Length of `x1` (', k, ') and `n1` (', length( n1 ), ') differ!' )
-    if ( length( x2 ) != k )
-        stop( 'Length of `x1` (', k, ') and `x2` (', length( x2 ), ') differ!' )
-    if ( length( n2 ) != k )
-        stop( 'Length of `x1` (', k, ') and `n2` (', length( n2 ), ') differ!' )
+    # coerce vector inputs to column matrices
+    if ( !is.matrix( x1 ) )
+        x1 <- as.matrix( x1 )
+    if ( !is.matrix( n1 ) )
+        n1 <- as.matrix( n1 )
+    if ( !is.matrix( x2 ) )
+        x2 <- as.matrix( x2 )
+    if ( !is.matrix( n2 ) )
+        n2 <- as.matrix( n2 )
     
+    # confirm that all matrices have same dimensions
+    mk <- dim( x1 )
+    if ( any( dim( n1 ) != mk ) )
+        stop( 'Dimensions of `x1` (', toString( mk ), ') and `n1` (', toString( dim( n1 ) ), ') differ!' )
+    if ( any( dim( x2 ) != mk ) )
+        stop( 'Dimensions of `x1` (', toString( mk ), ') and `x2` (', toString( dim( x2 ) ), ') differ!' )
+    if ( any( dim( n2 ) != mk ) )
+        stop( 'Dimensions of `x1` (', toString( mk, ), ') and `n2` (', toString( dim( n2 ) ), ') differ!' )
+
+    # separate dimensions now
+    m <- mk[1]
+    k <- mk[2]
+
     # let vectorization work its magic!
-    stat <- sum( af_test_single( x1, n1, x2, n2 ) )
+    # works with input matrices but output is flattened to vector, so return to matrix
+    #stat <- sum( af_test_single( x1, n1, x2, n2 ) )
+    stat <- matrix(
+        af_test_single( x1, n1, x2, n2 ),
+        nrow = m,
+        ncol = k
+    )
+    # sum across ancestries but not loci
+    stat <- rowSums( stat )
     
-    # converge to chi-square distribution
+    # under the null, distribution is asymptotically chi-squared distributed
+    # it is the same number of degrees of freedom in all rows
     pval <- stats::pchisq( q = stat, df = k, lower.tail = FALSE )
     return(
         list(

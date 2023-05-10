@@ -1,2 +1,4 @@
 unpub
 ^LICENSE\.md$
+^doc$
+^Meta$
