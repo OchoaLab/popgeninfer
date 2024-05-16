@@ -9,3 +9,7 @@
   - Now, vectors are treated as column matrices, and for matrices in general rows are treated as separate tests and columns as data to combine
   - The new setup aligns better with the actual uses of this function in various lab projects.
 - Added package vignette, confirming with simple simulations that `af_test` p-values are uniform under the null and concentrated near zero under the alternative hypothesis.
+
+# popgeninfer 0.0.2.9000 (2024-05-15)
+
+- Added function `af_test_or`, which complements `af_test` to calculate odds ratios, together with confidence intervals, and p-values.  However, this test has a different alternative model (more constrained because there is a single OR shared across ancestries) so the p-value are different when there is more than one column/ancestry.

@@ -67,6 +67,9 @@
 #' # 3-degree-of-freedom test.
 #' data <- af_test( x1, n1, x2, n2 )
 #' data$pval
+#'
+#' @seealso
+#' [af_test_or()], which unlike this function calculates odds ratios (OR), confidence intervals, and p-values under a more restricted alternative hypothesis that the OR is the same across columns.
 #' 
 #' @export
 af_test <- function( x1, n1, x2, n2 ) {

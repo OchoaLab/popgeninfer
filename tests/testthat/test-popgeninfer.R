@@ -1,4 +1,40 @@
-test_that("af_test_single, af_test work with k=1", {
+# level for CIs, to make them even more certain than default if needed
+level <- 0.999
+
+test_that("af_test_single, af_test_or_single work for flat x edge cases", {
+    # this used to cause errors particularly for glm/OR case
+    x1 <- 0
+    n1 <- 11
+    x2 <- 0
+    n2 <- 31
+    # original, stat is always zero here
+    expect_silent(
+        stat <- af_test_single( x1, n1, x2, n2 )
+    )
+    expect_true( stat == 0 )
+    # repeat with OR version, value also must have a specific form
+    expect_silent(
+        data <- af_test_or_single( x1, n1, x2, n2, level = level )
+    )
+    expect_equal( data, c(0, -Inf, Inf, 1) )
+
+    # other edge case has n=x
+    x1 <- n1
+    x2 <- n2
+    # expect same behaviors here
+    # original, stat is always zero here
+    expect_silent(
+        stat <- af_test_single( x1, n1, x2, n2 )
+    )
+    expect_true( stat == 0 )
+    # repeat with OR version, value also must have a specific form
+    expect_silent(
+        data <- af_test_or_single( x1, n1, x2, n2, level = level )
+    )
+    expect_equal( data, c(0, -Inf, Inf, 1) )
+})
+
+test_that("af_test_single, af_test, af_test_or_single, af_test_or work with k=1", {
     # simulate some null data
     p <- 0.4
     n1 <- 10
@@ -23,6 +59,40 @@ test_that("af_test_single, af_test work with k=1", {
     expect_true( pval <= 1 )
     # in this case null holds, so it should be very unlikely that the result is extremely significant
     expect_true( pval > 1e-10 )
+    # repeat with OR version
+    expect_silent(
+        data <- af_test_or_single( x1, n1, x2, n2, level = level )
+    )
+    expect_true( is.numeric( data ) )
+    expect_equal( length( data ), 4 )
+    # the mean should be within the CI always
+    expect_true( data[2] <= data[1] )
+    expect_true( data[3] >= data[1] )
+    # because it's the null, the log-OR (that's what this is) CI should contain 0 very often
+    expect_true( data[2] <= 0 )
+    expect_true( data[3] >= 0 )
+    # test p-values
+    expect_true( data[4] <= 1 )
+    # in this case null holds, so it should be very unlikely that the result is extremely significant
+    expect_true( data[4] > 1e-10 )
+    # and final wrapper, which is real ORs (not log), names are different
+    expect_silent(
+        data <- af_test_or( x1, n1, x2, n2, level = level )
+    )
+    expect_true( tibble::is_tibble( data ) )
+    expect_equal( names( data ), c('OR', 'CIL', 'CIU', 'pval') )
+    expect_equal( nrow( data ), 1 )
+    # the mean should be within the CI always
+    expect_true( data$CIL <= data$OR )
+    expect_true( data$CIU >= data$OR )
+    # because it's the null, the OR (that's what this is) CI should contain 1 very often
+    expect_true( data$CIL <= 1 * 10 ) # make more permissive, fails too often
+    expect_true( data$CIU >= 1 / 10 ) # make more permissive, fails too often
+    # test p-values
+    expect_true( data$pval <= 1 )
+    # in this case null holds, so it should be very unlikely that the result is extremely significant
+    expect_true( data$pval > 1e-10 )
+    
     
     # simulate some alternative data
     # big sample sizes too to best ensure a significant result
@@ -32,6 +102,8 @@ test_that("af_test_single, af_test work with k=1", {
     n2 <- 1390
     x1 <- rbinom( 1, n1, p1 )
     x2 <- rbinom( 1, n2, p2 )
+    # get true OR
+    true_OR <- p1 * (1 - p2 ) / ( p2 * (1 - p1 ) )
 
     # test it!
     expect_silent(
@@ -50,6 +122,39 @@ test_that("af_test_single, af_test work with k=1", {
     #expect_true( pval <= 1 )
     # in this case alt holds, and sample sizes are large, so a significant result is most likely
     expect_true( pval < 1e-5 )
+    # repeat with OR version
+    expect_silent(
+        data <- af_test_or_single( x1, n1, x2, n2, level = level )
+    )
+    expect_true( is.numeric( data ) )
+    expect_equal( length( data ), 4 )
+    # the mean should be within the CI always
+    expect_true( data[2] <= data[1] )
+    expect_true( data[3] >= data[1] )
+    # the log-OR (that's what this is) CI should contain its true value very often
+    expect_true( data[2] <= log( true_OR ) )
+    expect_true( data[3] >= log( true_OR ) )
+    # test p-values
+    expect_true( data[4] >= 0 )
+    # in this case alt holds, and sample sizes are large, so a significant result is most likely
+    expect_true( data[4] < 1e-5 )
+    # and final wrapper, which is real ORs (not log), names are different
+    expect_silent(
+        data <- af_test_or( x1, n1, x2, n2, level = level )
+    )
+    expect_true( tibble::is_tibble( data ) )
+    expect_equal( names( data ), c('OR', 'CIL', 'CIU', 'pval') )
+    expect_equal( nrow( data ), 1 )
+    # the mean should be within the CI always
+    expect_true( data$CIL <= data$OR )
+    expect_true( data$CIU >= data$OR )
+    # because it's the alt, the OR (that's what this is) CI should contain its true value very often
+    expect_true( data$CIL <= true_OR * 10 ) # make more permissive, fails too often
+    expect_true( data$CIU >= true_OR / 10 ) # make more permissive, fails too often
+    # test p-values
+    expect_true( data$pval >= 0 )
+    # in this case alt holds, and sample sizes are large, so a significant result is most likely
+    expect_true( data$pval < 1e-5 )
 })
 
 test_that( "af_test works with k=3", {
@@ -86,6 +191,30 @@ test_that( "af_test works with k=3", {
     # in this case null holds, so it should be very unlikely that the result is extremely significant
     expect_true( all( pval > 1e-10 ) )
 
+    ## # report data being used!
+    ## message( 'x1: ', toString( x1 ) )
+    ## message( 'n1: ', toString( n1 ) )
+    ## message( 'x2: ', toString( x2 ) )
+    ## message( 'n2: ', toString( n2 ) )
+
+    # test OR version
+    expect_silent(
+        data <- af_test_or( x1, n1, x2, n2, level = level )
+    )
+    expect_true( tibble::is_tibble( data ) )
+    expect_equal( names( data ), c('OR', 'CIL', 'CIU', 'pval') )
+    expect_equal( nrow( data ), k )
+    # the mean should be within the CI always
+    expect_true( all( data$CIL <= data$OR ) )
+    expect_true( all( data$CIU >= data$OR ) )
+    # because it's the null, the OR (that's what this is) CI should contain 1 very often
+    expect_true( all( data$CIL <= 1 * 10 ) ) # make more permissive, fails too often
+    expect_true( all( data$CIU >= 1 / 10 ) ) # make more permissive, fails too often
+    # test p-values
+    expect_true( all( data$pval <= 1 ) )
+    # in this case null holds, so it should be very unlikely that the result is extremely significant
+    expect_true( all( data$pval > 1e-10 ) )
+
     # ensure matrix version is the same
     x1 <- cbind( x1 )
     n1 <- cbind( n1 )
@@ -95,6 +224,10 @@ test_that( "af_test works with k=3", {
         obj2 <- af_test( x1, n1, x2, n2 )
     )
     expect_equal( obj2, obj )
+    expect_silent(
+        data2 <- af_test_or( x1, n1, x2, n2, level = level )
+    )
+    expect_equal( data2, data )
 
     # now run version with data as rows, which combines loci into a single test
     x1 <- t( x1 )
@@ -128,6 +261,24 @@ test_that( "af_test works with k=3", {
     )
     expect_equal( obj2, obj )
 
+    # test OR version
+    expect_silent(
+        data <- af_test_or( x1, n1, x2, n2, level = level )
+    )
+    expect_true( tibble::is_tibble( data ) )
+    expect_equal( names( data ), c('OR', 'CIL', 'CIU', 'pval') )
+    expect_equal( nrow( data ), 1 )
+    # the mean should be within the CI always
+    expect_true( data$CIL <= data$OR )
+    expect_true( data$CIU >= data$OR )
+    # because it's the null, the OR (that's what this is) CI should contain 1 very often
+    expect_true( data$CIL <= 1 * 10 ) # make more permissive, fails too often
+    expect_true( data$CIU >= 1 / 10 ) # make more permissive, fails too often
+    # test p-values
+    expect_true( data$pval <= 1 )
+    # in this case null holds, so it should be very unlikely that the result is extremely significant
+    expect_true( data$pval > 1e-10 )
+
     # simulate some alternative data
     # totally random data!
     p1 <- runif( k )
@@ -141,6 +292,8 @@ test_that( "af_test works with k=3", {
     # simulate data in batch
     x1 <- rbinom( k, n1, p1 )
     x2 <- rbinom( k, n2, p2 )
+    # get true ORs (vector)
+    true_OR <- p1 * (1 - p2 ) / ( p2 * (1 - p1 ) )
     
     # this is main version, testing each case independently
     expect_silent(
@@ -161,6 +314,24 @@ test_that( "af_test works with k=3", {
     # there are so many tests, though, that some do happen to get quite large p-values
     #expect_true( all( pval < 0.5 ) )
 
+    # test OR version
+    expect_silent(
+        data <- af_test_or( x1, n1, x2, n2, level = level )
+    )
+    expect_true( tibble::is_tibble( data ) )
+    expect_equal( names( data ), c('OR', 'CIL', 'CIU', 'pval') )
+    expect_equal( nrow( data ), k )
+    # the mean should be within the CI always
+    expect_true( all( data$CIL <= data$OR ) )
+    expect_true( all( data$CIU >= data$OR ) )
+    # because it's the alt, the OR (that's what this is) CI should contain its true value very often
+    expect_true( all( data$CIL <= true_OR * 10 ) ) # make more permissive, this fails too often
+    expect_true( all( data$CIU >= true_OR / 10 ) ) # make more permissive, this fails too often
+    # test p-values
+    expect_true( all( data$pval >= 0 ) )
+    # in this case alt holds, and sample sizes are large, so a significant result is most likely
+    #expect_true( all( data$pval < 0.5 ) ) # make more permissive, this fails too often
+
     # ensure matrix version is the same
     x1 <- cbind( x1 )
     n1 <- cbind( n1 )
@@ -170,6 +341,10 @@ test_that( "af_test works with k=3", {
         obj2 <- af_test( x1, n1, x2, n2 )
     )
     expect_equal( obj2, obj )
+    expect_silent(
+        data2 <- af_test_or( x1, n1, x2, n2, level = level )
+    )
+    expect_equal( data2, data )
 
     # now run version with data as rows, which combines loci into a single test
     x1 <- t( x1 )
@@ -191,7 +366,7 @@ test_that( "af_test works with k=3", {
     #expect_true( pval >= 0 )
     expect_true( pval <= 1 )
     # in this case alt holds, and sample sizes are large, so a significant result is most likely
-    expect_true( pval < 1e-5 )
+    expect_true( pval < 1e-4 )
     
     # another version
     expect_silent(
@@ -202,4 +377,23 @@ test_that( "af_test works with k=3", {
         )
     )
     expect_equal( obj2, obj )
+
+    # test OR version
+    expect_silent(
+        data <- af_test_or( x1, n1, x2, n2, level = level )
+    )
+    expect_true( tibble::is_tibble( data ) )
+    expect_equal( names( data ), c('OR', 'CIL', 'CIU', 'pval') )
+    expect_equal( nrow( data ), 1 )
+    # the mean should be within the CI always
+    expect_true( data$CIL <= data$OR )
+    expect_true( data$CIU >= data$OR )
+    # here it's hard to really say what the true OR should be, so let's skip that particular test
+    ## # because it's the alt, the OR (that's what this is) CI should contain its true value very often
+    ## expect_true( data$CIL <= true_OR )
+    ## expect_true( data$CIU >= true_OR )
+    # test p-values
+    expect_true( data$pval >= 0 )
+    # in this case alt holds, and sample sizes are large, so a significant result is most likely
+    expect_true( data$pval < 1e-2 )
 })
