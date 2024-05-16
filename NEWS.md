@@ -17,3 +17,4 @@
 # popgeninfer 0.0.3.9000 (2024-05-16)
 
 - Function `af_test_or` corrected a minor bug that swapped the roles of the allele counts (which are response) and study (which is covariate).  Also internally optimized how this Binomial data is passed to function `glm`, and made minor clarifications to documentation
+- Updated vignette to include `af_test_or`, and extended simulations to include new cases relevant to that function.  The vignette validates the accuracy of the new function and contrasts it to `af_test`.

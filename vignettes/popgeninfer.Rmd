@@ -14,20 +14,43 @@ knitr::opts_chunk$set(
 )
 ```
 
+## Introduction
+
+The setup is that there are two datasets, each with potentially several ancestries, and the data are allele counts for each dataset, ancestry, and at several loci.
+The goal of `af_test` is to determine, separately for each locus, whether the allele frequencies are essentially the same in both datasets or not, in a way that combines the data of all ancestries.
+The null hypothesis is that all allele frequencies, which can be different for each ancestry, are the same across studies.
+The alternative hypothesis is that at least one allele frequency is different in at least one ancestry.
+Thus, the alternative has $K$ degrees of freedom compared to the null, where $K$ is the number of ancestries.
+This test does not measure or care about the direction of differences, in fact in one ancestry the allele frequency can be smaller in dataset 1 vs 2, but in another ancestry it can be larger, and these count as overall differences (they do not cancel each other out).
+Thus, this test is appropriate if the alternative hypothesis does not have a clear direction or structure, we just want to know if there are differences, but may be underpowered when there is a consistent direction or other structure in the data.
+
+There is a second function, `af_test_or`, that also calculates odds ratios (ORs) in a more association-like test, which assumes a more restricted alternative hypothesis that the OR is the same across ancestries.
+Each ancestry can still have a different allele frequency under the null.
+The null hypothesis is the same for both functions, here stated as the OR=1 (for all ancestries).
+Thus, the alternative hypothesis has a single degree of freedom, and the test will have more power when this assumption is correct, which is expected for disease causing variants, for example.
+Furthermore, `af_test_or` is much more computationally intensive than `af_test`.
+
+Below we simulate data, to both illustrate usage and to evaluate differences in the behavior of the two statistical tests.
+
+## Allele frequency testing of separate loci, single ancestry
+
+First we consider the simplest setting, where there is a single ancestry, so the two tests are expected to agree in their alternative hypothesis (they only differ when there are multiple ancestries).
+We will use allele counts to perform these statistical tests while taking sample sizes into account.
+
 ```{r setup}
 library(popgeninfer)
 ```
 
-## Allele frequency testing of separate loci
-
-The setup is that there are two datasets and we want to know if the allele frequencies are essentially the same in both of them or not.
-We will use allele counts to perform these statistical tests while taking sample sizes into account.
+### Null data: equal allele frequency in both datasets
 
 Let's simulate a large number of "null" SNPs for the first example where allele frequencies are truly the same.
 Let's simulate the desired data using a compact vectorized notation.
 ```{r}
 # number of loci to simulate
-m <- 1000
+m <- 100
+# this is bonferroni threshold for significance
+p_cut_bonferroni <- 0.05 / m
+p_cut_bonferroni
 
 # draw `m` random allele frequencies between 0 and 1 from Uniform distribution.
 # (test is applied to each locus separately, so it does not assume any particular distribution
@@ -38,7 +61,7 @@ p <- runif( m )
 # use the Poisson distribution to draw `m` random non-negative integers with mean `n_mean`.
 # don't allow zero sample sizes though, minimum is 1.
 # (as above, there is no assumption being made for sample size distributions,
-# each locus is tested separately and stample sizes are known and conditioned upon.)
+# each locus is tested separately and sample sizes are known and conditioned upon.)
 n_mean <- 100
 n1 <- 1 + rpois( m, n_mean )
 n2 <- 1 + rpois( m, n_mean )
@@ -50,45 +73,124 @@ x1 <- rbinom( m, n1, p )
 x2 <- rbinom( m, n2, p )
 
 # apply test to each locus separately
-obj <- af_test( x1, n1, x2, n2 )
-pvalues <- obj$pval
+obj1 <- af_test( x1, n1, x2, n2 )
+pvalues1 <- obj1$pval
+
+# use second function now, which accepts the data in exactly the same format, but the outputs are different
+obj2 <- af_test_or( x1, n1, x2, n2 )
+pvalues2 <- obj2$pval
 ```
 
-As the data was simulated under the null distribution (the true allele frequencies in both datasets are the same), we expect these p-values to be uniformly distributed.
+As the data was simulated under the null distribution (the true allele frequencies in both datasets are the same), we expect these p-values (for both functions) to be uniformly distributed, whose density height is marked by the red line below.
 Let's confirm:
-```{r, fig.width = 4.2, fig.height = 3, fig.align = 'center'}
-hist( pvalues, freq = FALSE, main = '' )
+```{r, fig.width = 6.5, fig.height = 3, fig.align = 'center'}
+par( mfrow = c(1, 2) )
+hist( pvalues1, freq = FALSE, main = 'af_test' )
+abline( h = 1, lty = 2, col = 'red' )
+hist( pvalues2, freq = FALSE, main = 'af_test_or' )
 abline( h = 1, lty = 2, col = 'red' )
 ```
+The p-values of both functions are not identical, but they agree very well, as expected!
+Also as expected, nothing was significant by the Bonferroni criterion (red lines).
+```{r, fig.width = 4.2, fig.height = 4.2, fig.align = 'center'}
+# set a nice joint range that always includes significance threshold
+lims <- range( pvalues1, pvalues2, p_cut_bonferroni )
+plot( pvalues1, pvalues2, log = 'xy', xlim = lims, ylim = lims )
+# mark y=x line
+abline( 0, 1, lty = 2, col = 'gray' )
+# mark significance threshold
+abline( h = p_cut_bonferroni, lty = 2, col = 'red' )
+abline( v = p_cut_bonferroni, lty = 2, col = 'red' )
+```
+For the second function, let's look at the estimated ORs and CIs.
+Here the true OR is 1, and we can see that it is contained in the CIs most of the time, as desired.
+```{r, fig.width = 6.5, fig.height = 3, fig.align = 'center', warning = FALSE}
+library(plotrix)
+# hack limits because we do get infinities
+# sample sizes are small too so CIs can be very wide
+ylim <- c(
+    quantile( obj2$CIL, 0.05 ),
+    quantile( obj2$CIU, 0.95 )
+)
+plotCI(
+    x = 1 : m,
+    y = obj2$OR,
+    li = obj2$CIL,
+    ui = obj2$CIU,
+    ylim = ylim,
+    log = 'y',
+    xlab = 'Locus',
+    ylab = 'Estimated OR (95% CI)'
+)
+abline( h = 1, lty = 2, col = 'gray' )
+```
+
+### Alternative data: different allele frequencies in both datasets
 
 Now let's create data where the alternative hypothesis holds, namely that the allele frequencies are different in the each dataset.
 Let's simply create new allele frequencies for the second dataset, regenerate its data, and retest.
-These p-values are expected to be non-uniform and concentrated around zero.
-```{r, fig.width = 4.2, fig.height = 3, fig.align = 'center'}
+These p-values are as expected, namely non-uniform and concentrated around zero.
+```{r, fig.width = 6.5, fig.height = 3, fig.align = 'center'}
 # draw new allele frequencies for second dataset
 p2 <- runif( m )
 # and new allele counts from these frequencies
 x2 <- rbinom( m, n2, p2 )
 
-# apply test to each locus separately
-obj <- af_test( x1, n1, x2, n2 )
-pvalues <- obj$pval
+# apply tests to each locus separately
+obj1 <- af_test( x1, n1, x2, n2 )
+pvalues1 <- obj1$pval
+obj2 <- af_test_or( x1, n1, x2, n2 )
+pvalues2 <- obj2$pval
 
-# plot new p-value distribution
-hist( pvalues, freq = FALSE, main = '' )
+# plot new p-value distributions
+par( mfrow = c(1, 2) )
+hist( pvalues1, freq = FALSE, main = 'af_test' )
+abline( h = 1, lty = 2, col = 'red' )
+hist( pvalues2, freq = FALSE, main = 'af_test_or' )
 abline( h = 1, lty = 2, col = 'red' )
 ```
+The p-values of both functions agree to some extent, often declaring the same loci significant, but there is more power (smaller p-values) for `af_test`:
+```{r, fig.width = 4.2, fig.height = 4.2, fig.align = 'center'}
+lims <- range( pvalues1, pvalues2, p_cut_bonferroni )
+plot( pvalues1, pvalues2, log = 'xy', xlim = lims, ylim = lims )
+abline( 0, 1, lty = 2, col = 'gray' )
+abline( h = p_cut_bonferroni, lty = 2, col = 'red' )
+abline( v = p_cut_bonferroni, lty = 2, col = 'red' )
+```
+In this case the true ORs vary per locus, so let's compare them to estimates directly, seeing good unbiased estimates!
+```{r, fig.width = 4.2, fig.height = 4.2, fig.align = 'center', warning = FALSE}
+library(plotrix)
+true_OR <- p * ( 1 - p2 ) / ( p2 * ( 1 - p ) )
+ylim <- c(
+    quantile( obj2$CIL, 0.05 ),
+    quantile( obj2$CIU, 0.95 )
+)
+plotCI(
+    x = true_OR,
+    y = obj2$OR,
+    li = obj2$CIL,
+    ui = obj2$CIU,
+    ylim = ylim,
+    log = 'xy',
+    xlab = 'True OR',
+    ylab = 'Estimated OR (95% CI)'
+)
+abline( 0, 1, lty = 2, col = 'gray' )
+```
+
 
 ## Allele frequency testing of separate loci, combining data from different ancestries
 
-The same function accepts matrix inputs, in which case column data is combined in a single test, but rows remain separate tests.
+The same functions accept matrix inputs, in which case column data is combined in a single test, but rows remain separate tests.
 The matrix dimensions of all inputs must match.
-The test has degrees of freedom equal to the number of columns, and tests the joint null that all allele frequencies are equal (that is, even a single departure favors the alternative).
-Let's simulate more data under this null but with the correct number of dimensions.
-It's useful to think fo the rows as loci and columns as different ancestries, as done below, but they may represent different groupings or categories as long as columns are combined but rows are not.
-```{r, fig.width = 4.2, fig.height = 3, fig.align = 'center'}
-# number of loci to simulate
-m <- 1000
+The `af_test` test has degrees of freedom equal to the number of columns, and tests the joint null that all allele frequencies are equal (that is, even a single departure favors the alternative).
+In contrast, `af_test_or` has a single degree of freedom, and tests the null that the odds ratio, which is the same across ancestries, is not equal to one.
+Let's simulate more data under their null but with multiple columns now.
+It's useful to think of the rows as loci and columns as different ancestries, as done below, but they may represent different groupings or categories as long as columns are combined but rows are not.
+
+### Null data: equal allele frequency in both datasets
+
+```{r, fig.width = 6.5, fig.height = 3, fig.align = 'center'}
 # number of ancestries to simulate
 k <- 3
 
@@ -108,30 +210,161 @@ x2 <- rbinom( m*k, n2, p )
 x1 <- matrix( x1, nrow = m, ncol = k )
 x2 <- matrix( x2, nrow = m, ncol = k )
 
-# apply test to each locus separately, but combining column data
-obj <- af_test( x1, n1, x2, n2 )
-pvalues <- obj$pval
+# apply tests to each locus separately, but combining column data
+obj1 <- af_test( x1, n1, x2, n2 )
+pvalues1 <- obj1$pval
+obj2 <- af_test_or( x1, n1, x2, n2 )
+pvalues2 <- obj2$pval
 # confirm that there are exactly `m` p-values (not `k`, `m*k`, or some other number)
-stopifnot( length( pvalues ) == m )
+stopifnot( length( pvalues1 ) == m )
+stopifnot( length( pvalues2 ) == m )
 # confirm that they are uniform as expected
-hist( pvalues, freq = FALSE, main = '' )
+par( mfrow = c(1, 2) )
+hist( pvalues1, freq = FALSE, main = 'af_test' )
+abline( h = 1, lty = 2, col = 'red' )
+hist( pvalues2, freq = FALSE, main = 'af_test_or' )
 abline( h = 1, lty = 2, col = 'red' )
 ```
+The p-values of both functions disagree more here, because there are multiple ancestries, though they're all insignificant.
+```{r, fig.width = 4.2, fig.height = 4.2, fig.align = 'center'}
+lims <- range( pvalues1, pvalues2, p_cut_bonferroni )
+plot( pvalues1, pvalues2, log = 'xy', xlim = lims, ylim = lims )
+abline( 0, 1, lty = 2, col = 'gray' )
+abline( h = p_cut_bonferroni, lty = 2, col = 'red' )
+abline( v = p_cut_bonferroni, lty = 2, col = 'red' )
+```
+Let's again look at estimated ORs, which are about 1, as expected here.
+```{r, fig.width = 6.5, fig.height = 3, fig.align = 'center', warning = FALSE}
+ylim <- c(
+    quantile( obj2$CIL, 0.05 ),
+    quantile( obj2$CIU, 0.95 )
+)
+plotCI(
+    x = 1 : m,
+    y = obj2$OR,
+    li = obj2$CIL,
+    ui = obj2$CIU,
+    ylim = ylim,
+    log = 'y',
+    xlab = 'Locus',
+    ylab = 'Estimated OR (95% CI)'
+)
+abline( h = 1, lty = 2, col = 'gray' )
+```
+
+### Alternative 1 data: different allele frequencies in both datasets, different ORs per ancestry
 
 And, as before, create a second dataset with different allele frequencies, which yield p-values that peak near zero.
-```{r, fig.width = 4.2, fig.height = 3, fig.align = 'center'}
+These are simulated under the null of `af_test`, where differences are in random directions for different ancestries with no consistent OR, so `af_test` should have more power than `af_test_or`.
+```{r, fig.width = 6.5, fig.height = 3, fig.align = 'center', error = TRUE}
 # draw `m*k` random allele frequencies
 p2 <- matrix( runif( m*k ), nrow = m, ncol = k )
 # redraw the observed counts
 x2 <- rbinom( m*k, n2, p2 )
 x2 <- matrix( x2, nrow = m, ncol = k )
 
-# apply test
-obj <- af_test( x1, n1, x2, n2 )
-pvalues <- obj$pval
+# apply tests
+obj1 <- af_test( x1, n1, x2, n2 )
+pvalues1 <- obj1$pval
+obj2 <- af_test_or( x1, n1, x2, n2 )
+pvalues2 <- obj2$pval
 # confirm that there are exactly `m` p-values
-stopifnot( length( pvalues ) == m )
+stopifnot( length( pvalues1 ) == m )
+stopifnot( length( pvalues2 ) == m )
 # confirm that they peaked near zero as expected
-hist( pvalues, freq = FALSE, main = '' )
+par( mfrow = c(1, 2) )
+hist( pvalues1, freq = FALSE, main = 'af_test' )
 abline( h = 1, lty = 2, col = 'red' )
+hist( pvalues2, freq = FALSE, main = 'af_test_or' )
+abline( h = 1, lty = 2, col = 'red' )
+```
+Indeed, `af_test` has smaller p-values, and more significant loci, than `af_test_or` in this evaluation:
+```{r, fig.width = 4.2, fig.height = 4.2, fig.align = 'center'}
+lims <- range( pvalues1, pvalues2, p_cut_bonferroni )
+plot( pvalues1, pvalues2, log = 'xy', xlim = lims, ylim = lims )
+abline( 0, 1, lty = 2, col = 'gray' )
+abline( h = p_cut_bonferroni, lty = 2, col = 'red' )
+abline( v = p_cut_bonferroni, lty = 2, col = 'red' )
+```
+
+For the previous alternative data, it is unclear what the overall OR should be when every ancestry potentially has a different OR.
+After trying some failed experiments, I empirically saw that the OR of the average allele frequencies (averaged across ancestries) is closest to the quantity being estimated:
+```{r, fig.width = 4.2, fig.height = 4.2, fig.align = 'center', warning = FALSE}
+# average ancestries before OR
+p1a <- rowMeans( p )
+p2a <- rowMeans( p2 )
+true_OR <- p1a * ( 1 - p2a ) / ( p2a * ( 1 - p1a ) )
+ylim <- c(
+    quantile( obj2$CIL, 0.05 ),
+    quantile( obj2$CIU, 0.95 )
+)
+plotCI(
+    x = true_OR,
+    y = obj2$OR,
+    li = obj2$CIL,
+    ui = obj2$CIU,
+    ylim = ylim,
+    log = 'xy',
+    xlab = 'True OR',
+    ylab = 'Estimated OR (95% CI)'
+)
+abline( 0, 1, lty = 2, col = 'gray' )
+```
+
+### Alternative 2 data: different allele frequencies in both datasets, equal ORs across ancestries
+
+Lastly, let's simulate alternative data for the `af_test_or` model, which assumes that the ORs are shared across ancestries, and for which that test ought to have higher power than `af_test` does.
+For simplicity, the true OR will further be equal across loci.
+```{r, fig.width = 6.5, fig.height = 3, fig.align = 'center', error = TRUE}
+# choose a desired OR large enough for its CIs to not overlap 1
+true_OR <- 3
+# construct allele frequencies with that true OR relative to the original `p`
+p2 <- p / ( p * ( 1 - true_OR ) + true_OR )
+# redraw the observed counts
+x2 <- rbinom( m*k, n2, p2 )
+x2 <- matrix( x2, nrow = m, ncol = k )
+
+# apply tests
+obj1 <- af_test( x1, n1, x2, n2 )
+pvalues1 <- obj1$pval
+obj2 <- af_test_or( x1, n1, x2, n2 )
+pvalues2 <- obj2$pval
+# confirm that there are exactly `m` p-values
+stopifnot( length( pvalues1 ) == m )
+stopifnot( length( pvalues2 ) == m )
+# confirm that they peaked near zero as expected
+par( mfrow = c(1, 2) )
+hist( pvalues1, freq = FALSE, main = 'af_test' )
+abline( h = 1, lty = 2, col = 'red' )
+hist( pvalues2, freq = FALSE, main = 'af_test_or' )
+abline( h = 1, lty = 2, col = 'red' )
+```
+As expected, `af_test_or` has smaller p-values than `af_test` in this setting, though the difference is small and the number of significant loci similar both ways:
+```{r, fig.width = 4.2, fig.height = 4.2, fig.align = 'center'}
+lims <- range( pvalues1, pvalues2, p_cut_bonferroni )
+plot( pvalues1, pvalues2, log = 'xy', xlim = lims, ylim = lims )
+abline( 0, 1, lty = 2, col = 'gray' )
+abline( h = p_cut_bonferroni, lty = 2, col = 'red' )
+abline( v = p_cut_bonferroni, lty = 2, col = 'red' )
+```
+The estimated ORs and CIs look great here, most of the time confidently excluding the null value OR=1!
+```{r, fig.width = 6.5, fig.height = 3, fig.align = 'center', warning = FALSE}
+ylim <- c(
+    min( quantile( obj2$CIL, 0.05 ), 1 ),
+    quantile( obj2$CIU, 0.95 )
+)
+plotCI(
+    x = 1 : m,
+    y = obj2$OR,
+    li = obj2$CIL,
+    ui = obj2$CIU,
+    ylim = ylim,
+    log = 'y',
+    xlab = 'Locus',
+    ylab = 'Estimated OR (95% CI)'
+)
+# desired value
+abline( h = true_OR, lty = 2, col = 'red' )
+# null value
+abline( h = 1, lty = 2, col = 'gray' )
 ```
