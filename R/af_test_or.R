@@ -1,6 +1,7 @@
 #' Estimate odds ratios (ORs) between two conditions
 #'
 #' This function tests if the ORs between allele frequencies at each locus is non-zero between two datasets based on their counts and sample sizes, returning ORs (odds of first condition over odds of second), confidence intervals, and p-values.
+#' In other words, for the OR direction, dataset 1 is treated as cases and dataset 2 as controls: OR > 1 if the allele is more common in cases than controls, OR < 1 otherwise.
 #' Under the null hypothesis, the OR is 1 in both datasets, while under the alternative it is non-zero.
 #' Counts are assumed to be Binomially distributed.
 #' If inputs are matrices of equal dimensions, rows are tested separately but columns are combined, assigned a single OR assuming that it is shared across columns (useful for combining data from different ancestries, or different loci).

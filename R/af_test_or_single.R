@@ -5,30 +5,19 @@ af_test_or_single <- function( x1, n1, x2, n2, level = 0.95 ) {
     # since the probabilities are equal, makes sense to assume that the OR=1, but otherwise assign the worst CIs and p-values
     if ( all( c(x1, x2) == 0 ) || all( c(n1-x1, n2-x2) == 0 ) )
         return( c(0, -Inf, Inf, 1) )
-    
+
     # inputs were tested outside, here assume they are all the same length
     k <- length( x1 )
-    # reorganize data to look like individual observations
-    y <- c()
-    x <- c()
-    a <- c()
-    for ( u in 1 : k ) {
-        # copy down scalars, many of which are reused a lot
-        x1u <- x1[u]
-        n1u <- n1[u]
-        x2u <- x2[u]
-        n2u <- n2[u]
-        # this is the response, whether they are in group 1 or not
-        y <- c( y, rep.int( 1, n1u ), rep.int( 0, n2u ) )
-        # alleles present
-        x <- c( x, rep.int( 1, x1u ), rep.int( 0, n1u - x1u ), rep.int( 1, x2u ), rep.int( 0, n2u - x2u ) )
-        # and lastly, ancestry
-        a <- c( a, rep.int( u, n1u + n2u ) )
-    }
-    # force ancestry as a categorical!
-    a <- as.factor( a )
+    # reorganized data for glm
+    # observed successes and failures (alleles), one row per dataset
+    # goes through all ancestries first for first dataset, then all ancestries for second dataset
+    y <- rbind( cbind( x1, n1 - x1 ), cbind( x2, n2 - x2 ) )
+    # dataset 1 indicator (second is dataset 2)
+    x <- c( rep.int( 1, k ), rep.int( 0, k ) )
+    # ancestry indicator (force categorical)
+    a <- as.factor( c( 1:k, 1:k ) )
     # fit model!
-    # in these caess glm can produce warnings, such as "glm.fit: fitted probabilities numerically 0 or 1 occurred" always silence it
+    # in these cases glm can produce warnings, such as "glm.fit: fitted probabilities numerically 0 or 1 occurred", always silence it
     suppressWarnings(
         obj <- if ( k == 1 ) {
                    stats::glm( y ~ x, family = stats::binomial( link = 'logit' ) )

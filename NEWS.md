@@ -13,3 +13,7 @@
 # popgeninfer 0.0.2.9000 (2024-05-15)
 
 - Added function `af_test_or`, which complements `af_test` to calculate odds ratios, together with confidence intervals, and p-values.  However, this test has a different alternative model (more constrained because there is a single OR shared across ancestries) so the p-value are different when there is more than one column/ancestry.
+
+# popgeninfer 0.0.3.9000 (2024-05-16)
+
+- Function `af_test_or` corrected a minor bug that swapped the roles of the allele counts (which are response) and study (which is covariate).  Also internally optimized how this Binomial data is passed to function `glm`, and made minor clarifications to documentation
