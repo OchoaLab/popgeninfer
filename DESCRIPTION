@@ -1,6 +1,6 @@
 Package: popgeninfer
 Title: Population Genetics Inference
-Version: 0.0.3.9000
+Version: 0.0.4.9000
 Authors@R: c(
     person(given = "Alejandro",
 	   family = "Ochoa",
@@ -17,7 +17,7 @@ Description: Simple statistical tests, so far concerning allele frequencies.
 License: GPL (>= 3)
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
-RoxygenNote: 7.3.1
+RoxygenNote: 7.3.2
 Suggests: 
     knitr,
     rmarkdown,
@@ -25,6 +25,7 @@ Suggests:
     plotrix
 Imports:
     stats,
-    tibble
+    tibble,
+    stringi
 Config/testthat/edition: 3
 VignetteBuilder: knitr

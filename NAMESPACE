@@ -2,3 +2,6 @@
 
 export(af_test)
 export(af_test_or)
+export(bias_geno)
+export(flip_revcomps)
+export(revcomp)

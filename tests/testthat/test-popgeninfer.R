@@ -1,3 +1,5 @@
+library(tibble)
+
 # level for CIs, to make them even more certain than default if needed
 level <- 0.999
 
@@ -79,7 +81,7 @@ test_that("af_test_single, af_test, af_test_or_single, af_test_or work with k=1"
     expect_silent(
         data <- af_test_or( x1, n1, x2, n2, level = level )
     )
-    expect_true( tibble::is_tibble( data ) )
+    expect_true( is_tibble( data ) )
     expect_equal( names( data ), c('OR', 'CIL', 'CIU', 'pval') )
     expect_equal( nrow( data ), 1 )
     # the mean should be within the CI always
@@ -142,7 +144,7 @@ test_that("af_test_single, af_test, af_test_or_single, af_test_or work with k=1"
     expect_silent(
         data <- af_test_or( x1, n1, x2, n2, level = level )
     )
-    expect_true( tibble::is_tibble( data ) )
+    expect_true( is_tibble( data ) )
     expect_equal( names( data ), c('OR', 'CIL', 'CIU', 'pval') )
     expect_equal( nrow( data ), 1 )
     # the mean should be within the CI always
@@ -201,7 +203,7 @@ test_that( "af_test works with k=3", {
     expect_silent(
         data <- af_test_or( x1, n1, x2, n2, level = level )
     )
-    expect_true( tibble::is_tibble( data ) )
+    expect_true( is_tibble( data ) )
     expect_equal( names( data ), c('OR', 'CIL', 'CIU', 'pval') )
     expect_equal( nrow( data ), k )
     # the mean should be within the CI always
@@ -265,7 +267,7 @@ test_that( "af_test works with k=3", {
     expect_silent(
         data <- af_test_or( x1, n1, x2, n2, level = level )
     )
-    expect_true( tibble::is_tibble( data ) )
+    expect_true( is_tibble( data ) )
     expect_equal( names( data ), c('OR', 'CIL', 'CIU', 'pval') )
     expect_equal( nrow( data ), 1 )
     # the mean should be within the CI always
@@ -318,7 +320,7 @@ test_that( "af_test works with k=3", {
     expect_silent(
         data <- af_test_or( x1, n1, x2, n2, level = level )
     )
-    expect_true( tibble::is_tibble( data ) )
+    expect_true( is_tibble( data ) )
     expect_equal( names( data ), c('OR', 'CIL', 'CIU', 'pval') )
     expect_equal( nrow( data ), k )
     # the mean should be within the CI always
@@ -382,7 +384,7 @@ test_that( "af_test works with k=3", {
     expect_silent(
         data <- af_test_or( x1, n1, x2, n2, level = level )
     )
-    expect_true( tibble::is_tibble( data ) )
+    expect_true( is_tibble( data ) )
     expect_equal( names( data ), c('OR', 'CIL', 'CIU', 'pval') )
     expect_equal( nrow( data ), 1 )
     # the mean should be within the CI always
@@ -396,4 +398,157 @@ test_that( "af_test works with k=3", {
     expect_true( data$pval >= 0 )
     # in this case alt holds, and sample sizes are large, so a significant result is most likely
     expect_true( data$pval < 0.5 )
+})
+
+test_that( "revcomp works", {
+    # a vector of alleles with all cases for single letters, and a few more complex cases
+    x_in    <- c('A', 'C', 'G', 'T', 'a', 'c', 'g', 't', 'ATAC', 'GATTACA')
+    # these are the expected outputs
+    out_exp <- c('T', 'G', 'C', 'A', 't', 'g', 'c', 'a', 'GTAT', 'TGTAATC')
+
+    # a successful run!
+    expect_silent(
+        out <- revcomp( x_in )
+    )
+    expect_equal( out, out_exp )
+})
+
+
+# simulate genotypes to reuse to test various functions
+m_loci <- 101
+n_ind <- 9
+X <- matrix(
+    rbinom( m_loci * n_ind, 2, 0.5 ),
+    nrow = m_loci,
+    ncol = n_ind
+)
+# for flipping tests, come up with some complex alt/ref cases that are also predictable
+m_flippable <- 51
+alt <- c(
+    sample( c('A', 'C', 'G', 'T', 'GATTACA'), 51, replace = TRUE ),
+    rep.int( 'A', 25 ),
+    rep.int( 'T', 25 )
+)
+# first half, roughly, of refs are actual reverse complements of alts (thus flippable)
+ref <- revcomp( alt )
+# the other half force to not be
+ref[ 52:101 ] <- 'C'
+bim <- tibble( alt = alt, ref = ref )
+
+test_that( "bias_geno works", {
+    # parameters
+    p_biased <- 0.1
+    # for checks
+    m_biased <- round( p_biased * m_loci )
+
+    # this is the standard run
+    expect_silent(
+        obj <- bias_geno( X, p_biased )
+    )
+    # validate outputs
+    expect_true( is.list( obj ) )
+    expect_equal( names( obj ), c('X', 'biased_loci', 'error_probs', 'error_genos') )
+    # check genotypes
+    expect_true( is.matrix( obj$X ) )
+    expect_equal( nrow( obj$X ), m_loci )
+    expect_equal( ncol( obj$X ), n_ind )
+    expect_true( all( obj$X %in% 0L : 2L ) )
+    # check the other vectors
+    expect_equal( length( obj$biased_loci ), m_biased )
+    expect_equal( length( unique( obj$biased_loci ) ), m_biased )
+    expect_true( is.integer( obj$biased_loci ) )
+    expect_true( all( obj$biased_loci %in% 1 : m_loci ) )
+    expect_equal( length( obj$error_probs ), m_biased )
+    expect_true( is.numeric( obj$error_probs ) )
+    expect_true( min( obj$error_probs ) >= 0 )
+    expect_true( max( obj$error_probs ) <= 1 )
+    expect_equal( length( obj$error_genos ), m_biased )
+    expect_true( is.integer( obj$error_genos ) )
+    expect_true( all( obj$error_genos %in% c(0L, 2L) ) )
+    # loci that were not biased should be identical to input
+    expect_equal( obj$X[ -obj$biased_loci, ], X[ -obj$biased_loci, ] )
+    # among biased loci, those that were biased toward zero should be smaller or equal than before, and the opposite for those biased towards 2
+    indexes <- obj$error_genos == 0
+    expect_true( all( obj$X[ obj$biased_loci[ indexes ], ] <= X[ obj$biased_loci[ indexes ], ] ) )
+    expect_true( all( obj$X[ obj$biased_loci[ !indexes ], ] >= X[ obj$biased_loci[ !indexes ], ] ) )
+    
+    # repeat test providing loci to bias
+    m_biased <- 21
+    biased_loci <- 1 : m_biased
+    expect_silent(
+        obj <- bias_geno( X, biased_loci = biased_loci )
+    )
+    # validate outputs
+    expect_true( is.list( obj ) )
+    expect_equal( names( obj ), c('X', 'biased_loci', 'error_probs', 'error_genos') )
+    # check genotypes
+    expect_true( is.matrix( obj$X ) )
+    expect_equal( nrow( obj$X ), m_loci )
+    expect_equal( ncol( obj$X ), n_ind )
+    expect_true( all( obj$X %in% 0L : 2L ) )
+    # output biased_loci should match input exactly
+    expect_equal( obj$biased_loci, biased_loci )
+    # check the other vectors
+    expect_equal( length( obj$error_probs ), m_biased )
+    expect_true( is.numeric( obj$error_probs ) )
+    expect_true( min( obj$error_probs ) >= 0 )
+    expect_true( max( obj$error_probs ) <= 1 )
+    expect_equal( length( obj$error_genos ), m_biased )
+    expect_true( is.integer( obj$error_genos ) )
+    expect_true( all( obj$error_genos %in% c(0L, 2L) ) )
+    # loci that were not biased should be identical to input
+    expect_equal( obj$X[ -obj$biased_loci, ], X[ -obj$biased_loci, ] )
+    # among biased loci, those that were biased toward zero should be smaller or equal than before, and the opposite for those biased towards 2
+    indexes <- obj$error_genos == 0
+    expect_true( all( obj$X[ obj$biased_loci[ indexes ], ] <= X[ obj$biased_loci[ indexes ], ] ) )
+    expect_true( all( obj$X[ obj$biased_loci[ !indexes ], ] >= X[ obj$biased_loci[ !indexes ], ] ) )
+})
+
+test_that( "flip_revcomps works", {
+    p <- 0.1
+    # for checks
+    m_flipped <- round( p * m_flippable )
+
+    # the successful run
+    expect_silent(
+        obj <- flip_revcomps( X, p, bim )
+    )
+    # validate outputs
+    expect_true( is.list( obj ) )
+    expect_equal( names( obj ), c('X', 'flipped_loci') )
+    # check genotypes
+    expect_true( is.matrix( obj$X ) )
+    expect_equal( nrow( obj$X ), m_loci )
+    expect_equal( ncol( obj$X ), n_ind )
+    expect_true( all( obj$X %in% 0L : 2L ) )
+    # check the other vector
+    expect_equal( length( obj$flipped_loci ), m_flipped )
+    expect_equal( length( unique( obj$flipped_loci ) ), m_flipped )
+    expect_true( is.integer( obj$flipped_loci ) )
+    expect_true( all( obj$flipped_loci %in% 1 : m_flippable ) ) # flippable loci were all the first few
+    # loci that were not flipped should be identical to input
+    expect_equal( obj$X[ -obj$flipped_loci, ], X[ -obj$flipped_loci, ] )
+    # and flipped loci satisfy this relationship!
+    expect_equal( obj$X[ obj$flipped_loci, ], 2 - X[ obj$flipped_loci, ] )
+
+    # test version where the flipped loci are predetermined
+    m_flipped <- 21
+    flipped_loci <- 1 : m_flipped
+    expect_silent(
+        obj <- flip_revcomps( X, flipped_loci = flipped_loci )
+    )
+    # validate outputs
+    expect_true( is.list( obj ) )
+    expect_equal( names( obj ), c('X', 'flipped_loci') )
+    # check genotypes
+    expect_true( is.matrix( obj$X ) )
+    expect_equal( nrow( obj$X ), m_loci )
+    expect_equal( ncol( obj$X ), n_ind )
+    expect_true( all( obj$X %in% 0L : 2L ) )
+    # output flipped_loci should match input exactly
+    expect_equal( obj$flipped_loci, flipped_loci )
+    # loci that were not flipped should be identical to input
+    expect_equal( obj$X[ -obj$flipped_loci, ], X[ -obj$flipped_loci, ] )
+    # and flipped loci satisfy this relationship!
+    expect_equal( obj$X[ obj$flipped_loci, ], 2 - X[ obj$flipped_loci, ] )
 })
