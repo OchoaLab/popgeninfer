@@ -22,3 +22,8 @@
 # popgeninfer 0.0.4.9000 (2025-02-05)
 
 - Added functions `bias_geno`, `revcomp`, and `flip_revcomps`, to simulate platform-specific genotyping biases and ambiguous strand flips.  All are based on originals from Tiffany Tu's project.
+
+# popgeninfer 0.0.5.9000 (2025-02-11)
+
+- Added functions `af_filter` and `filter_category` that implement the basic filter based on `af_test` considering flips, resulting in the three categories "remove", "flip", and "keep" depending on p-value threshold.
+- Vignette increased sample size and introduced other minor corrections to avoid fatal plotting problems (involving log scales in particular).

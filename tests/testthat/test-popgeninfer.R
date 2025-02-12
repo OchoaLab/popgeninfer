@@ -552,3 +552,48 @@ test_that( "flip_revcomps works", {
     # and flipped loci satisfy this relationship!
     expect_equal( obj$X[ obj$flipped_loci, ], 2 - X[ obj$flipped_loci, ] )
 })
+
+test_that( "af_filter works", {
+    # use the global m_loci and bim that goes with it!
+    
+    # make some matrix data
+    k_subpops <- 3
+    p1 <- matrix( runif( m_loci * k_subpops ), nrow = m_loci, ncol = k_subpops )
+    p2 <- matrix( runif( m_loci * k_subpops ), nrow = m_loci, ncol = k_subpops )
+    # same for sample sizes
+    n1 <- matrix( rpois( m_loci * k_subpops, 10 ), nrow = m_loci, ncol = k_subpops )
+    n2 <- matrix( rpois( m_loci * k_subpops, 10 ), nrow = m_loci, ncol = k_subpops )
+    # don't allow zeroes of course
+    n1[ n1 == 0 ] <- 1
+    n2[ n2 == 0 ] <- 1
+    # simulate data in batch
+    x1 <- matrix( rbinom( m_loci * k_subpops, n1, p1 ), nrow = m_loci, ncol = k_subpops )
+    x2 <- matrix( rbinom( m_loci * k_subpops, n2, p2 ), nrow = m_loci, ncol = k_subpops )
+
+    expect_silent(
+        data <- af_filter( x1, n1, x2, n2, bim )
+    )
+    expect_true( is.data.frame( data ) )
+    expect_equal( nrow( data ), m_loci )
+    expect_equal( names( data ), c('alt', 'ref', 'revcomp', 'pval_fwd', 'pval_rev') )
+    expect_equal( bim$alt == revcomp( bim$ref ), data$revcomp )
+    expect_true( !anyNA( data$pval_fwd ) )
+    expect_true( !anyNA( data$pval_rev[ data$revcomp ] ) )
+    expect_true( all( is.na( data$pval_rev[ !data$revcomp ] ) ) )
+})
+
+test_that( "filter_category works", {
+    # come up with an example with all relevant cases, all values far from the threshold one way or the other
+    data <- tibble(
+        revcomp  = c( FALSE, FALSE,  TRUE,  TRUE,  TRUE,  TRUE,  TRUE ),
+        pval_fwd = c(   0.9, 1e-10,   0.1,   0.9,   0.9, 1e-10, 1e-10 ),
+        pval_rev = c(    NA,    NA,   0.9,   0.1, 1e-10,   0.9, 1e-10 )
+    )
+    pcut <- 0.01
+    cat_exp = c( 'keep', 'remove', 'flip', 'keep', 'keep', 'flip', 'remove' )
+    
+    expect_silent( 
+        cat <- filter_category( data, pcut )
+    )
+    expect_equal( cat, cat_exp )
+})

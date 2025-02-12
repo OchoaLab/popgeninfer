@@ -62,7 +62,7 @@ p <- runif( m )
 # don't allow zero sample sizes though, minimum is 1.
 # (as above, there is no assumption being made for sample size distributions,
 # each locus is tested separately and sample sizes are known and conditioned upon.)
-n_mean <- 100
+n_mean <- 1000
 n1 <- 1 + rpois( m, n_mean )
 n2 <- 1 + rpois( m, n_mean )
 
@@ -108,9 +108,10 @@ Here the true OR is 1, and we can see that it is contained in the CIs most of th
 library(plotrix)
 # hack limits because we do get infinities
 # sample sizes are small too so CIs can be very wide
+# always ignore zeroes because of log scale
 ylim <- c(
-    quantile( obj2$CIL, 0.05 ),
-    quantile( obj2$CIU, 0.95 )
+    quantile( obj2$CIL[ obj2$CIL > 0 ], 0.05, na.rm = TRUE ),
+    quantile( obj2$CIU[ obj2$CIU > 0 ], 0.95, na.rm = TRUE )
 )
 plotCI(
     x = 1 : m,
@@ -161,15 +162,18 @@ In this case the true ORs vary per locus, so let's compare them to estimates dir
 ```{r, fig.width = 4.2, fig.height = 4.2, fig.align = 'center', warning = FALSE}
 library(plotrix)
 true_OR <- p * ( 1 - p2 ) / ( p2 * ( 1 - p ) )
+# always ignore zeroes because of log scale
+xlim <- range( true_OR[ true_OR > 0 ] )
 ylim <- c(
-    quantile( obj2$CIL, 0.05 ),
-    quantile( obj2$CIU, 0.95 )
+    quantile( obj2$CIL[ obj2$CIL > 0 ], 0.05, na.rm = TRUE ),
+    quantile( obj2$CIU[ obj2$CIU > 0 ], 0.95, na.rm = TRUE )
 )
 plotCI(
     x = true_OR,
     y = obj2$OR,
     li = obj2$CIL,
     ui = obj2$CIU,
+    xlim = xlim,
     ylim = ylim,
     log = 'xy',
     xlab = 'True OR',
