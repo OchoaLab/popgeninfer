@@ -30,6 +30,9 @@
 #' 
 #' @export
 filter_category <- function( data, pcut ) {
+    # when this is a string, bad things happen, force numeric now!
+    pcut <- as.numeric( pcut )
+    
     # apply thresholds, categorize loci
     # copy down values
     pval_rest <- data$pval_fwd[ !data$revcomp ]

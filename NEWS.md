@@ -27,3 +27,7 @@
 
 - Added functions `af_filter` and `filter_category` that implement the basic filter based on `af_test` considering flips, resulting in the three categories "remove", "flip", and "keep" depending on p-value threshold.
 - Vignette increased sample size and introduced other minor corrections to avoid fatal plotting problems (involving log scales in particular).
+
+# popgeninfer 0.0.6.9000 (2025-02-13)
+
+- Added functions `binary_eval` and `filter_eval` to calculate precision and recall for binary and 3-category (flip, remove, keep) cases, respectively.

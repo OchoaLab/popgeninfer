@@ -597,3 +597,39 @@ test_that( "filter_category works", {
     )
     expect_equal( cat, cat_exp )
 })
+
+test_that( "binary_eval works", {
+    # come up with a fixed example where we know the answers
+    true <- c(TRUE, TRUE, TRUE,  TRUE, FALSE, FALSE, FALSE)
+    pred <- c(TRUE, TRUE, TRUE, FALSE,  TRUE,  TRUE, FALSE)
+    # expected return is: precision, recall, TP, FP, FN
+    TP <- 3
+    FP <- 2
+    FN <- 1
+    precision <- TP / ( TP + FP )
+    recall <- TP / ( TP + FN )
+    data_exp <- c( precision, recall, TP, FP, FN )
+    names( data_exp ) <- c( 'precision', 'recall', 'TP', 'FP', 'FN' )
+
+    expect_silent(
+        data <- binary_eval( true, pred )
+    )
+    expect_equal( data, data_exp )
+})
+
+test_that( "filter_eval works", {
+    # come up with fixed categories where we know the answers
+    true <- c('keep', 'keep',   'keep', 'flip',   'flip', 'remove', 'remove', 'remove')
+    pred <- c('keep', 'flip', 'remove', 'flip', 'remove', 'remove',   'flip',   'keep')
+    # expected data are just precisions and recalls for each case
+    data_exp <- tibble(
+        type = c('flip', 'remove'),
+        precision = c( 1/3, 1/3 ),
+        recall = c( 1/2, 1/3 )
+    )
+    
+    expect_silent(
+        data <- filter_eval( true, pred )
+    )
+    expect_equal( data, data_exp )
+})
