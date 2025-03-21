@@ -2,7 +2,7 @@
 % Please edit documentation in R/filter_eval.R
 \name{filter_eval}
 \alias{filter_eval}
-\title{Calculate precision and recall for flip/remove/keep categories}
+\title{Calculate precision and recall for flip/remove/keep categories using three criteria}
 \usage{
 filter_eval(true, pred)
 }
@@ -20,14 +20,16 @@ A tibble with two rows (for flip and remove), and three columns:
 }
 }
 \description{
-This function calculates precision and recall, which are ordinarily binary classification statistics calculated with \code{\link[=binary_eval]{binary_eval()}}, on our 3-category data (flip, remove, keep) by treating the minor categories as their own in turn and the rest are merged.
+This function calculates precision and recall, which are ordinarily binary classification statistics calculated with \code{\link[=binary_eval]{binary_eval()}}, on our 3-category data (flip, remove, keep) by using a GWAS-inspired criterion described in \code{\link[=gwas_eval]{gwas_eval()}} and also treating the minor categories as their own in turn and the rest are merged using \code{\link[=binary_eval]{binary_eval()}}.
 In particular, for "flip" we consider the binary class \code{TRUE} if it was a flip and \code{FALSE} if it was anything else (in this case either remove or keep).
 Similarly, for "remove" we consider the binary class \code{TRUE} if it was a remove and `FALSE for anything else (flip or keep).
-No statistics are calculated for "keep", which are ordinarily the most common category.
-Note that categories must match "flip" and "remove" in spelling and capitalization to be counted correctly, everything else is implicitly treated as the third category "keep", even if there are additional categories.
+No statistics are calculated for "keep", which are ordinarily the most common category, though that will be reflected in the other categories.
+}
+\details{
+Categories must match "keep", "flip" and "remove" in spelling and capitalization, otherwise an error is thrown.
 }
 \examples{
-# the input data should look like this:
+# the input data should look something like this:
 true <- c('keep', 'keep',   'keep', 'flip',   'flip', 'remove', 'remove', 'remove')
 pred <- c('keep', 'flip', 'remove', 'flip', 'remove', 'remove',   'flip',   'keep')
 
@@ -37,5 +39,7 @@ data
 
 }
 \seealso{
-\code{\link[=binary_eval]{binary_eval()}}, which is used internally to calculate the desired statistics once our multi-category classes are binarized.
+\code{\link[=gwas_eval]{gwas_eval()}}, which is used internally to calculate statistics using a custom, GWAS-inspired criterion.
+
+\code{\link[=binary_eval]{binary_eval()}}, which is used internally to calculate statistics once our multi-category classes are binarized.
 }

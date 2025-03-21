@@ -24,7 +24,9 @@
 #' data
 #'
 #' @seealso
-#' [filter_eval()] for a wrapper applied to 3-category classifications (remove, flip, keep).
+#' [gwas_eval()] to calculate statistics using a custom, GWAS-inspired criterion for 3-category classifications (remove, flip, keep).
+#' 
+#' [filter_eval()] for a wrapper applied to 3-category classifications (remove, flip, keep) using several criteria.
 #'
 #' @export
 # inputs in these cases are booleans already!  These cases are easy, though they're potentially inefficient in cases where thresholds give nested answers (here it's probably not so, not generally)

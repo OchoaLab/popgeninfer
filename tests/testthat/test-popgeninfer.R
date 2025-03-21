@@ -617,15 +617,86 @@ test_that( "binary_eval works", {
     expect_equal( data, data_exp )
 })
 
+test_that( "check_cats works", {
+    # a successful case
+    expect_silent(
+        check_cats( c( 'keep', 'flip', 'remove' ) )
+    )
+
+    # and cases that are supposed to cause errors
+    expect_error(
+        check_cats( c( 'keep', 'flip', 'remove', NA ) )
+    )
+    for ( cat in c( 'Keep', 'Flip', 'Remove', 'X', 'random' ) ) {
+        expect_error(
+            check_cats( cat )
+        )
+    }
+})
+
+test_that( "gwas_eval works", {
+    # do several examples, this is a more complicated scenario
+    # first the most trivial one, just enumerate all cases, expect one of each, should be easy to catch double counting or missing counts
+    true <- c( 'keep', 'keep', 'keep', 'flip', 'flip', 'flip', 'remove', 'remove', 'remove' )
+    pred <- c( 'keep', 'flip', 'remove', 'keep', 'flip', 'remove', 'keep', 'flip', 'remove' )
+    # this is what we expect
+    TP <- 2
+    FP <- 4
+    FN <- 2
+    precision <- TP / ( TP + FP )
+    recall <- TP / ( TP + FN )
+    data_exp <- c( precision, recall, TP, FP, FN )
+    names( data_exp ) <- c( 'precision', 'recall', 'TP', 'FP', 'FN' )
+
+    expect_silent(
+        data <- gwas_eval( true, pred )
+    )
+    expect_equal( data, data_exp )
+
+    # some sparser examples, though it's unclear what's more informative exactly
+    true <- c( 'keep', 'keep', 'keep' )
+    pred <- c( 'keep', 'flip', 'remove' )
+    # this is what we expect
+    TP <- 1
+    FP <- 1
+    FN <- 1
+    precision <- TP / ( TP + FP )
+    recall <- TP / ( TP + FN )
+    data_exp <- c( precision, recall, TP, FP, FN )
+    names( data_exp ) <- c( 'precision', 'recall', 'TP', 'FP', 'FN' )
+
+    expect_silent(
+        data <- gwas_eval( true, pred )
+    )
+    expect_equal( data, data_exp )
+
+    # some sparser examples, though it's unclear what's more informative exactly
+    true <- c( 'flip', 'remove', 'flip', 'remove' )
+    pred <- c( 'flip', 'flip', 'remove', 'remove' )
+    # this is what we expect
+    TP <- 1
+    FP <- 1
+    FN <- 1
+    precision <- TP / ( TP + FP )
+    recall <- TP / ( TP + FN )
+    data_exp <- c( precision, recall, TP, FP, FN )
+    names( data_exp ) <- c( 'precision', 'recall', 'TP', 'FP', 'FN' )
+
+    expect_silent(
+        data <- gwas_eval( true, pred )
+    )
+    expect_equal( data, data_exp )
+})
+
 test_that( "filter_eval works", {
     # come up with fixed categories where we know the answers
     true <- c('keep', 'keep',   'keep', 'flip',   'flip', 'remove', 'remove', 'remove')
     pred <- c('keep', 'flip', 'remove', 'flip', 'remove', 'remove',   'flip',   'keep')
     # expected data are just precisions and recalls for each case
     data_exp <- tibble(
-        type = c('flip', 'remove'),
-        precision = c( 1/3, 1/3 ),
-        recall = c( 1/2, 1/3 )
+        type = c('gwas', 'flip', 'remove'),
+        precision = c( 2/5, 1/3, 1/3 ),
+        recall = c( 1/2, 1/2, 1/3 )
     )
     
     expect_silent(

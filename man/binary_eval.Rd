@@ -38,5 +38,7 @@ data
 
 }
 \seealso{
-\code{\link[=filter_eval]{filter_eval()}} for a wrapper applied to 3-category classifications (remove, flip, keep).
+\code{\link[=gwas_eval]{gwas_eval()}} to calculate statistics using a custom, GWAS-inspired criterion for 3-category classifications (remove, flip, keep).
+
+\code{\link[=filter_eval]{filter_eval()}} for a wrapper applied to 3-category classifications (remove, flip, keep) using several criteria.
 }

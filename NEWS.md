@@ -31,3 +31,8 @@
 # popgeninfer 0.0.6.9000 (2025-02-13)
 
 - Added functions `binary_eval` and `filter_eval` to calculate precision and recall for binary and 3-category (flip, remove, keep) cases, respectively.
+
+# popgeninfer 0.0.7.9000 (2025-03-21)
+
+- Added function `gwas_eval`, and added it to the `filter_eval` wrapper too.
+
