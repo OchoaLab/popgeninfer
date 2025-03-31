@@ -1,5 +1,5 @@
 Package: popgeninfer
-Title: Population Genetics Inference
+Title: Tests and simulations of genotyping platform bias
 Version: 0.0.8.9000
 Authors@R: c(
     person(given = "Alejandro",
@@ -13,7 +13,7 @@ Authors@R: c(
 	   email = "tiffany.tu@duke.edu",
            comment = c(ORCID = "0000-0002-9357-6660"))
     )
-Description: Simple statistical tests, so far concerning allele frequencies.
+Description: Code for testing genotyping statistical bias, and for producing simulations that evaluate our methods.  Also includes some more basic statistical tests concerning allele frequencies that are useful to perform GWAS with structured summary data such as that from gnomAD or UK Biobank.
 License: GPL (>= 3)
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
