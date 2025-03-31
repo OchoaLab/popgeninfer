@@ -36,3 +36,6 @@
 
 - Added function `gwas_eval`, and added it to the `filter_eval` wrapper too.
 
+# popgeninfer 0.0.8.9000 (2025-03-31)
+
+- Function `filter_eval` now returns a new column "removed" that simply counts total removals.

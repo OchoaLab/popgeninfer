@@ -10,10 +10,11 @@
 #' @param true Vector of true string categories, with values in "flip", "remove", or "keep".
 #' @param pred Vector of predicted string categories, with values in "flip", "remove", or "keep".
 #'
-#' @return A tibble with two rows (for flip and remove), and three columns:
+#' @return A tibble with three rows (for gwas, flip and remove), and four columns:
 #' - `type`: either "flip" or "remove"
 #' - `precision`: the precision for flips or removes, as indicated by `type`
 #' - `recall`: the recall for flips or removes, as indicated by `type`
+#' - `removed`: number of removals for "gwas" row only (`NA` for the rest).
 #'
 #' @examples
 #' # the input data should look something like this:
@@ -43,7 +44,8 @@ filter_eval <- function( true, pred ) {
         tibble::tibble(
                     type = c('gwas', 'flip', 'remove'),
                     precision = c( gwas[1], flip[1], remove[1] ),
-                    recall = c( gwas[2], flip[2], remove[2] )
+                    recall = c( gwas[2], flip[2], remove[2] ),
+                    removed = c( sum( pred == 'remove' ), NA, NA )
                 )
     )
 }

@@ -696,7 +696,8 @@ test_that( "filter_eval works", {
     data_exp <- tibble(
         type = c('gwas', 'flip', 'remove'),
         precision = c( 2/5, 1/3, 1/3 ),
-        recall = c( 1/2, 1/2, 1/3 )
+        recall = c( 1/2, 1/2, 1/3 ),
+        removed = c( 3, NA, NA )
     )
     
     expect_silent(

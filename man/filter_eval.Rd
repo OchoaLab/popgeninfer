@@ -12,11 +12,12 @@ filter_eval(true, pred)
 \item{pred}{Vector of predicted string categories, with values in "flip", "remove", or "keep".}
 }
 \value{
-A tibble with two rows (for flip and remove), and three columns:
+A tibble with three rows (for gwas, flip and remove), and four columns:
 \itemize{
 \item \code{type}: either "flip" or "remove"
 \item \code{precision}: the precision for flips or removes, as indicated by \code{type}
 \item \code{recall}: the recall for flips or removes, as indicated by \code{type}
+\item \code{removed}: number of removals for "gwas" row only (\code{NA} for the rest).
 }
 }
 \description{
